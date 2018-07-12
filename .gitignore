@@ -101,3 +101,6 @@ ENV/
 models/
 data/*.csv
 data/*_dataset/
+
+# dataset:
+audios
