@@ -13,10 +13,14 @@ import os.path
 import json
 
 parser = argparse.ArgumentParser(description='DeepSpeech transcription')
-parser.add_argument('--model-path', default='models/deepspeech_final.pth',
-                    help='Path to model file created by training')
-parser.add_argument('--audio-path', default='audio.wav',
-                    help='Audio file to predict on')
+# parser.add_argument('--model-path', default='models/deepspeech_final.pth', help='Path to model file created by training')
+# parser.add_argument('--audio-path', default='audio.wav',help='Audio file to predict on')
+
+parser.add_argument('--model-path', default='models/librispeech_pretrained.pth', help='Path to model file created by training')
+parser.add_argument('--audio-path', default='audios/cat1.wav',help='Audio file to predict on')
+# parser.add_argument('--audio-path', default='audios/cat/00f0204f_nohash_1.wav',help='Audio file to predict on')
+# parser.add_argument('--audio-path', default='audios/cat/0a196374_nohash_0.wav',help='Audio file to predict on')
+
 parser.add_argument('--cuda', action="store_true", help='Use cuda to test model')
 parser.add_argument('--decoder', default="greedy", choices=["greedy", "beam"], type=str, help="Decoder to use")
 parser.add_argument('--offsets', dest='offsets', action='store_true', help='Returns time offset information')
@@ -33,6 +37,8 @@ beam_args.add_argument('--cutoff-top-n', default=40, type=int,
 beam_args.add_argument('--cutoff-prob', default=1.0, type=float,
                        help='Cutoff probability in pruning,default 1.0, no pruning.')
 beam_args.add_argument('--lm-workers', default=1, type=int, help='Number of LM processes to use')
+
+
 args = parser.parse_args()
 
 

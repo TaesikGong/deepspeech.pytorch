@@ -20,7 +20,15 @@ windows = {'hamming': scipy.signal.hamming, 'hann': scipy.signal.hann, 'blackman
 
 
 def load_audio(path):
-    sound, _ = torchaudio.load(path)
+    sound, sampling_rate = torchaudio.load(path)
+
+    if sampling_rate > 16000:
+        # 48khz -> 16 khz
+        if sound.size(0) % 3 == 0:
+            sound = sound[::3].contiguous()
+        else:
+            sound = sound[:-(sound.size(0) % 3):3].contiguous()
+
     sound = sound.numpy()
     if len(sound.shape) > 1:
         if sound.shape[1] == 1:
