@@ -1,5 +1,7 @@
 import argparse
 import warnings
+import socket
+import sys
 
 warnings.simplefilter('ignore')
 
@@ -18,9 +20,7 @@ parser = argparse.ArgumentParser(description='DeepSpeech transcription')
 
 parser.add_argument('--model-path', default='models/librispeech_pretrained.pth', help='Path to model file created by training')
 # parser.add_argument('--audio-path', default='audios/cat1.wav',help='Audio file to predict on')
-parser.add_argument('--audio-path', default='audios/longsentence.wav',help='Audio file to predict on')
-# parser.add_argument('--audio-path', default='audios/libri/2961-961-0001.flac',help='Audio file to predict on')
-# parser.add_argument('--audio-path', default='audios/cat/00f0204f_nohash_1.wav',help='Audio file to predict on')
+parser.add_argument('--audio-path', default='audios/cat/00f0204f_nohash_1.wav',help='Audio file to predict on')
 # parser.add_argument('--audio-path', default='audios/cat/0a196374_nohash_0.wav',help='Audio file to predict on')
 
 parser.add_argument('--cuda', action="store_true", help='Use cuda to test model')
@@ -92,8 +92,49 @@ if __name__ == '__main__':
 
     parser = SpectrogramParser(audio_conf, normalize=True)
 
-    spect = parser.parse_audio(args.audio_path).contiguous()
-    spect = spect.view(1, 1, spect.size(0), spect.size(1))
-    out = model(spect)
-    decoded_output, decoded_offsets = decoder.decode(out.data)
-    print(json.dumps(decode_results(model, decoded_output, decoded_offsets)))
+
+
+    ###--- server setup
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_address = ('', 10000)
+    print('starting up on %s port %s' % server_address)
+    sock.bind(server_address)
+    sock.listen(1)
+    file_name = 'audios/recorded.wav'
+    bFileFound = 0
+    while True:
+        # Wait for a connection
+        connection, client_address = sock.accept()
+        print('connection from', client_address)
+        try:
+            # while True:
+            #     recv_data = connection.recv(1024)
+            #     while recv_data != b'ok':
+            #         recv_data = connection.recv(1024)
+            #         print('ok waiting')
+            #     print('ok received')
+
+            recv_data = connection.recv(1024)
+            recv_file = open(file_name, 'wb')
+            while recv_data:
+                recv_file.write(recv_data)
+                recv_data = connection.recv(1024)
+
+            recv_file.close()
+            print('download complete')
+
+            #inference
+            spect = parser.parse_audio(file_name).contiguous()
+            spect = spect.view(1, 1, spect.size(0), spect.size(1))
+            out = model(spect)
+            decoded_output, decoded_offsets = decoder.decode(out.data)
+            print(json.dumps(decode_results(model, decoded_output, decoded_offsets)))
+
+        finally:
+            # Clean up the connection
+            print('connection close')
+            connection.close()
+
+
+
+
