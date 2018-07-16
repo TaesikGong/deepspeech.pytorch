@@ -113,7 +113,6 @@ if __name__ == '__main__':
             #         recv_data = connection.recv(1024)
             #         print('ok waiting')
             #     print('ok received')
-
             recv_data = connection.recv(1024)
             recv_file = open(file_name, 'wb')
             while recv_data:
@@ -129,7 +128,8 @@ if __name__ == '__main__':
             out = model(spect)
             decoded_output, decoded_offsets = decoder.decode(out.data)
             print(json.dumps(decode_results(model, decoded_output, decoded_offsets)))
-
+        except ConnectionResetError:#connection is broken by a client
+            pass
         finally:
             # Clean up the connection
             print('connection close')
