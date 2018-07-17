@@ -24,6 +24,7 @@ def load_audio(path):
 
     if sampling_rate > 16000:
         # 48khz -> 16 khz
+        print('down sampling..'+str(sampling_rate))
         if sound.size(0) % 3 == 0:
             sound = sound[::3].contiguous()
         else:
