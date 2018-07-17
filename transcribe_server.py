@@ -1,7 +1,7 @@
 import argparse
 import warnings
 import socket
-import sys
+import sys, time
 
 warnings.simplefilter('ignore')
 
@@ -18,7 +18,9 @@ parser = argparse.ArgumentParser(description='DeepSpeech transcription')
 # parser.add_argument('--model-path', default='models/deepspeech_final.pth', help='Path to model file created by training')
 # parser.add_argument('--audio-path', default='audio.wav',help='Audio file to predict on')
 
-parser.add_argument('--model-path', default='models/librispeech_pretrained.pth', help='Path to model file created by training')
+# parser.add_argument('--model-path', default='models/librispeech_pretrained.pth', help='Path to model file created by training')
+parser.add_argument('--model-path', default='models/deepspeech_final.pth', help='Path to model file created by training')
+# parser.add_argument('--model-path', default='models/libri_finetune_final.pth', help='Path to model file created by training')
 # parser.add_argument('--audio-path', default='audios/cat1.wav',help='Audio file to predict on')
 parser.add_argument('--audio-path', default='audios/cat/00f0204f_nohash_1.wav',help='Audio file to predict on')
 # parser.add_argument('--audio-path', default='audios/cat/0a196374_nohash_0.wav',help='Audio file to predict on')
@@ -100,7 +102,7 @@ if __name__ == '__main__':
     print('starting up on %s port %s' % server_address)
     sock.bind(server_address)
     sock.listen(1)
-    file_name = 'audios/recorded.wav'
+    file_name = 'data/recorded.wav'
     bFileFound = 0
     while True:
         # Wait for a connection
@@ -122,11 +124,19 @@ if __name__ == '__main__':
             recv_file.close()
             print('download complete')
 
+            start = time.time()
             #inference
             spect = parser.parse_audio(file_name).contiguous()
+            parsing_time = time.time() - start
+
             spect = spect.view(1, 1, spect.size(0), spect.size(1))
             out = model(spect)
+            inferring_time = time.time() - parsing_time - start
+
             decoded_output, decoded_offsets = decoder.decode(out.data)
+            decoding_time = time.time() - inferring_time - start
+
+            print('time for parsing: %0.4f,\t inferring: %0.4f,\t decoding: %0.4f'%(parsing_time,inferring_time,decoding_time))
             print(json.dumps(decode_results(model, decoded_output, decoded_offsets)))
         except ConnectionResetError:#connection is broken by a client
             pass
