@@ -19,7 +19,8 @@ parser = argparse.ArgumentParser(description='DeepSpeech transcription')
 # parser.add_argument('--audio-path', default='audio.wav',help='Audio file to predict on')
 
 # parser.add_argument('--model-path', default='models/librispeech_pretrained.pth', help='Path to model file created by training')
-parser.add_argument('--model-path', default='models/deepspeech_final.pth', help='Path to model file created by training')
+parser.add_argument('--model-path', default='models/SC128_final.pth', help='Path to model file created by training')#on testset, WER 5.679 CER 4.023
+# parser.add_argument('--model-path', default='models/SCan4_final.pth', help='Path to model file created by training')#on testset, WER 6.343 CER 4.374
 # parser.add_argument('--model-path', default='models/libri_finetune_final.pth', help='Path to model file created by training')
 # parser.add_argument('--audio-path', default='audios/cat1.wav',help='Audio file to predict on')
 parser.add_argument('--audio-path', default='audios/cat/00f0204f_nohash_1.wav',help='Audio file to predict on')
@@ -98,7 +99,7 @@ if __name__ == '__main__':
 
     ###--- server setup
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address = ('', 10000)
+    server_address = ('', 10001)
     print('starting up on %s port %s' % server_address)
     sock.bind(server_address)
     sock.listen(1)
