@@ -286,11 +286,14 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='DeepSpeech model information')
-    parser.add_argument('--model-path', default='models/deepspeech_final.pth',
+    parser.add_argument('--model-path', default='weight_old/librispeech_pretrained.pth',
                         help='Path to model file created by training')
     args = parser.parse_args()
     package = torch.load(args.model_path, map_location=lambda storage, loc: storage)
     model = DeepSpeech.load_model(args.model_path)
+
+    labels = DeepSpeech.get_labels(model)
+    audio_conf = DeepSpeech.get_audio_conf(model)
 
     print("Model name:         ", os.path.basename(args.model_path))
     print("DeepSpeech version: ", model._version)
@@ -322,3 +325,63 @@ if __name__ == '__main__':
         print("Additional Metadata")
         for k, v in model._meta:
             print("  ", k, ": ", v)
+
+    # evaluation test
+
+    device = None
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+    model = model.to(device)
+
+    from data.data_loader import AudioDataLoader, SpectrogramDataset, BucketingSampler, DistributedBucketingSampler
+    test_dataset = SpectrogramDataset(audio_conf=audio_conf, manifest_filepath='data/libri_val_manifest.csv', labels=labels,
+                                      normalize=True, augment=False)
+    test_loader = AudioDataLoader(test_dataset, batch_size=20,
+                                  num_workers=8)#TODO: needs to be changed
+
+    from tqdm import tqdm
+    start_iter = 0  # Reset start iteration for next epoch
+    total_cer, total_wer = 0, 0
+    model.eval()
+    with torch.no_grad():
+        for i, (data) in tqdm(enumerate(test_loader), total=len(test_loader)):
+            inputs, targets, input_percentages, target_sizes = data
+
+            # unflatten targets
+            split_targets = []
+            offset = 0
+            for size in target_sizes:
+                split_targets.append(targets[offset:offset + size])
+                offset += size
+
+            if torch.cuda.is_available():
+                inputs = inputs.cuda()
+
+            out = model(inputs)  # NxTxH
+            seq_length = out.size(1)
+            sizes = input_percentages.mul_(int(seq_length)).int()
+
+            from decoder import GreedyDecoder
+            decoder = GreedyDecoder(labels)
+            decoded_output, _ = decoder.decode(out.data, sizes)
+            target_strings = decoder.convert_to_strings(split_targets)
+            wer, cer = 0, 0
+            for x in range(len(target_strings)):
+                transcript, reference = decoded_output[x][0], target_strings[x][0]
+                wer += decoder.wer(transcript, reference) / float(len(reference.split()))
+                cer += decoder.cer(transcript, reference) / float(len(reference))
+            total_cer += cer
+            total_wer += wer
+
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            del out
+        wer = total_wer / len(test_loader.dataset)
+        cer = total_cer / len(test_loader.dataset)
+        wer *= 100
+        cer *= 100
+        print(
+              'Average WER {wer:.3f}\t'
+              'Average CER {cer:.3f}\t'.format(wer=wer, cer=cer))

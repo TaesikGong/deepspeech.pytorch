@@ -43,11 +43,11 @@ parser.add_argument('--checkpoint', dest='checkpoint', action='store_true', help
 parser.add_argument('--checkpoint-per-batch', default=0, type=int, help='Save checkpoint per batch. 0 means never save')
 parser.add_argument('--visdom', dest='visdom', action='store_true', help='Turn on visdom graphing')
 parser.add_argument('--tensorboard', dest='tensorboard', action='store_true', help='Turn on tensorboard graphing')
-parser.add_argument('--log-dir', default='visualize/deepspeech_final', help='Location of tensorboard log')
+parser.add_argument('--log-dir', default='log', help='Location of tensorboard log')
 parser.add_argument('--log-params', dest='log_params', action='store_true', help='Log parameter values and gradients')
 parser.add_argument('--id', default='Deepspeech training', help='Identifier for visdom/tensorboard run')
-parser.add_argument('--save-folder', default='models/', help='Location to save epoch models')
-parser.add_argument('--model-path', default='models/deepspeech_final.pth',
+parser.add_argument('--save-folder', default='weight/', help='Location to save epoch models')
+parser.add_argument('--model-path', default='weight/deepspeech_final.pth',
                     help='Location to save best validation model')
 parser.add_argument('--continue-from', default='', help='Continue from checkpoint model')
 parser.add_argument('--finetune', dest='finetune', action='store_true',
