@@ -286,7 +286,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='DeepSpeech model information')
-    parser.add_argument('--model-path', default='weight_old/librispeech_pretrained.pth',
+    parser.add_argument('--model-path', default='weight/librispeech_pretrained.pth',
                         help='Path to model file created by training')
     args = parser.parse_args()
     package = torch.load(args.model_path, map_location=lambda storage, loc: storage)
@@ -338,13 +338,15 @@ if __name__ == '__main__':
     from data.data_loader import AudioDataLoader, SpectrogramDataset, BucketingSampler, DistributedBucketingSampler
     test_dataset = SpectrogramDataset(audio_conf=audio_conf, manifest_filepath='data/libri_val_manifest.csv', labels=labels,
                                       normalize=True, augment=False)
-    test_loader = AudioDataLoader(test_dataset, batch_size=20,
-                                  num_workers=8)#TODO: needs to be changed
+    test_loader = AudioDataLoader(test_dataset, batch_size=1,
+                                  num_workers=1)#TODO: needs to be changed
 
     from tqdm import tqdm
     start_iter = 0  # Reset start iteration for next epoch
     total_cer, total_wer = 0, 0
     model.eval()
+    from decoder import GreedyDecoder
+    decoder = GreedyDecoder(labels)
     with torch.no_grad():
         for i, (data) in tqdm(enumerate(test_loader), total=len(test_loader)):
             inputs, targets, input_percentages, target_sizes = data
@@ -363,8 +365,6 @@ if __name__ == '__main__':
             seq_length = out.size(1)
             sizes = input_percentages.mul_(int(seq_length)).int()
 
-            from decoder import GreedyDecoder
-            decoder = GreedyDecoder(labels)
             decoded_output, _ = decoder.decode(out.data, sizes)
             target_strings = decoder.convert_to_strings(split_targets)
             wer, cer = 0, 0
