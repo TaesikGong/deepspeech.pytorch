@@ -20,7 +20,12 @@ windows = {'hamming': scipy.signal.hamming, 'hann': scipy.signal.hann, 'blackman
 
 
 def load_audio(path):
-    sound, sampling_rate = torchaudio.load(path)
+
+    from dxaudio.reader import AudioReader
+    sound, sampling_rate = AudioReader.read(path, sampling_freq=16000)
+    sound = np.float32(sound)
+    sound = torch.FloatTensor(sound)
+    # sound, sampling_rate = torchaudio.load(path)
 
     if sampling_rate > 16000:
         # 48khz -> 16 khz
@@ -30,12 +35,12 @@ def load_audio(path):
         else:
             sound = sound[:-(sound.size(0) % 3):3].contiguous()
 
-    sound = sound.numpy()
+    # sound = sound.numpy()
     if len(sound.shape) > 1:
         if sound.shape[1] == 1:
-            sound = sound.squeeze()
+            sound = sound.view(-1)
         else:
-            sound = sound.mean(axis=1)  # multiple channels, average
+            sound = sound.mean(dim=1)  # multiple channels, average
     return sound
 
 
@@ -123,17 +128,25 @@ class SpectrogramParser(AudioParser):
         win_length = n_fft
         hop_length = int(self.sample_rate * self.window_stride)
         # STFT
-        D = librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
+
+        D = librosa.stft(y.numpy(), n_fft=n_fft, hop_length=hop_length,
                          win_length=win_length, window=self.window)
         spect, phase = librosa.magphase(D)
-        # S = log(S+1)
         spect = np.log1p(spect)
+
+        # D_torch = torch.stft(y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=torch.hamming_window(n_fft, periodic =False, requires_grad=True), center=True, pad_mode='reflect',
+        #            normalized=False, onesided=True)
+        #
+        # D_torch = D_torch.index_select(2, torch.autograd.Variable(torch.LongTensor([0]))).view(D_torch.shape[0],-1,)
+        # spect = D_torch.abs()
+        # spect = spect.log1p()
+
         spect = torch.FloatTensor(spect)
         if self.normalize:
             mean = spect.mean()
             std = spect.std()
-            spect.add_(-mean)
-            spect.div_(std)
+            spect = spect.add(-mean)
+            spect = spect.div(std)
 
         return spect
 

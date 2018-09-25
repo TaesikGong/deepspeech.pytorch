@@ -282,6 +282,7 @@ class DeepSpeech(nn.Module):
 
 
 if __name__ == '__main__':
+
     import os.path
     import argparse
 
@@ -327,7 +328,7 @@ if __name__ == '__main__':
             print("  ", k, ": ", v)
 
     # evaluation test
-
+    '''
     device = None
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -385,3 +386,53 @@ if __name__ == '__main__':
         print(
               'Average WER {wer:.3f}\t'
               'Average CER {cer:.3f}\t'.format(wer=wer, cer=cer))
+    '''
+
+    #gradient test
+    # '''
+
+    import numpy as np
+    path = '/root/git/deepspeech.pytorch/data/LibriSpeech_dataset/val/wav/1651-136854-0012.wav'
+    from dxaudio.reader import AudioReader
+    sound, sampling_rate = AudioReader.read(path, sampling_freq=16000)
+    sound = np.float32(sound)
+    sound = torch.autograd.Variable(torch.FloatTensor(sound), requires_grad=True)
+    # sound = torch.FloatTensor(sound)
+    # sound, sampling_rate = torchaudio.load(path)
+
+    if sampling_rate > 16000:
+        # 48khz -> 16 khz
+        print('down sampling..'+str(sampling_rate))
+        if sound.size(0) % 3 == 0:
+            sound = sound[::3].contiguous()
+        else:
+            sound = sound[:-(sound.size(0) % 3):3].contiguous()
+
+    # sound = sound.numpy()
+    if len(sound.shape) > 1:
+        if sound.shape[1] == 1:
+            sound = sound.view(-1)
+        else:
+            sound = sound.mean(dim=1)  # multiple channels, average
+            
+    
+    D_torch = torch.stft(sound, n_fft=320, hop_length=160, win_length=320, window=torch.hamming_window(320, periodic =False, requires_grad=True), center=True, pad_mode='reflect',
+                   normalized=False, onesided=True)
+    D_torch.abs_()
+    spect_torch = D_torch.index_select(2, torch.autograd.Variable(torch.LongTensor([0]))).view(D_torch.shape[0],-1,)
+
+    if True:
+        mean = spect_torch.mean()
+        std = spect_torch.std()
+        spect_torch.add_(-mean)
+        spect_torch.div_(std)
+
+    device = None
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+    model = model.to(device)
+
+
+    # '''
