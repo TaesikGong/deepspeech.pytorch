@@ -146,7 +146,8 @@ class SpectrogramParser(AudioParser):
             mean = spect.mean()
             std = spect.std()
             spect = spect.add(-mean)
-            spect = spect.div(std)
+            if std != 0:
+                spect = spect.div(std)
 
         return spect
 
