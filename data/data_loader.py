@@ -10,18 +10,16 @@ import librosa
 import numpy as np
 import scipy.signal
 import torch
-import torchaudio
 import math
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+from dxaudio.reader import AudioReader
 
 windows = {'hamming': scipy.signal.hamming, 'hann': scipy.signal.hann, 'blackman': scipy.signal.blackman,
            'bartlett': scipy.signal.bartlett}
 
 
 def load_audio(path):
-
-    from dxaudio.reader import AudioReader
     sound, sampling_rate = AudioReader.read(path, sampling_freq=16000)
     sound = np.float32(sound)
     sound = torch.FloatTensor(sound)
@@ -29,13 +27,12 @@ def load_audio(path):
 
     if sampling_rate > 16000:
         # 48khz -> 16 khz
-        print('down sampling..'+str(sampling_rate))
+        print('down sampling..' + str(sampling_rate))
         if sound.size(0) % 3 == 0:
             sound = sound[::3].contiguous()
         else:
             sound = sound[:-(sound.size(0) % 3):3].contiguous()
 
-    # sound = sound.numpy()
     if len(sound.shape) > 1:
         if sound.shape[1] == 1:
             sound = sound.view(-1)
@@ -106,7 +103,8 @@ class SpectrogramParser(AudioParser):
         self.window_stride = audio_conf['window_stride']
         self.window_size = audio_conf['window_size']
         self.sample_rate = audio_conf['sample_rate']
-        self.window = windows.get(audio_conf['window'], windows['hamming'])
+        # self.window = windows.get(audio_conf['window'], windows['hamming'])
+        self.window = torch.hamming_window(int(self.sample_rate * self.window_size), periodic=False, requires_grad=True)
         self.normalize = normalize
         self.augment = augment
         self.noiseInjector = NoiseInjection(audio_conf['noise_dir'], self.sample_rate,
@@ -128,28 +126,30 @@ class SpectrogramParser(AudioParser):
         win_length = n_fft
         hop_length = int(self.sample_rate * self.window_stride)
         # STFT
-
+        #-- librosa implementation previously used
+        '''
         D = librosa.stft(y.numpy(), n_fft=n_fft, hop_length=hop_length,
                          win_length=win_length, window=self.window)
         spect, phase = librosa.magphase(D)
         spect = np.log1p(spect)
-
-        # D_torch = torch.stft(y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=torch.hamming_window(n_fft, periodic =False, requires_grad=True), center=True, pad_mode='reflect',
-        #            normalized=False, onesided=True)
-        #
-        # D_torch = D_torch.index_select(2, torch.autograd.Variable(torch.LongTensor([0]))).view(D_torch.shape[0],-1,)
-        # spect = D_torch.abs()
-        # spect = spect.log1p()
-
         spect = torch.FloatTensor(spect)
-        if self.normalize:
+        '''
+        D_torch = torch.stft(y, n_fft=n_fft, hop_length=hop_length, win_length=win_length,
+                             window=self.window, center=True,
+                             pad_mode='reflect',
+                             normalized=False, onesided=True)
+        D_torch = D_torch.index_select(2, torch.tensor([0])).view(D_torch.shape[0], -1)
+        spect = D_torch.abs()
+        spect = spect.log1p()
+
+        if True:
             mean = spect.mean()
             std = spect.std()
             spect = spect.add(-mean)
             if std != 0:
                 spect = spect.div(std)
 
-        return spect
+        return spect.detach()# note that while training the neural network, no need to track gradients of stft
 
     def parse_transcript(self, transcript_path):
         raise NotImplementedError
